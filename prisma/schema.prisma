@@ -1,0 +1,520 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Superadmin {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @db.VarChar(100)
+  email         String   @unique @db.VarChar(150)
+  password_hash String
+  general_data  Json?
+  invoice_data  Json?
+  created_at    DateTime @default(now()) @db.Timestamptz
+
+  admins     Admin[]
+  businesses Business[]
+
+  @@map("superadmins")
+}
+
+model Admin {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by_superadmin_id String?  @db.Uuid
+  name                     String   @db.VarChar(100)
+  email                    String   @unique @db.VarChar(150)
+  phone                    String?  @db.VarChar(20)
+  password_hash            String
+  is_active                Boolean  @default(true)
+  created_at               DateTime @default(now()) @db.Timestamptz
+
+  superadmin  Superadmin?  @relation(fields: [created_by_superadmin_id], references: [id])
+  businesses  Business[]
+  teamMembers TeamMember[]
+
+  @@map("admins")
+}
+
+model Business {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by_superadmin_id     String?   @db.Uuid
+  admin_id                     String?   @db.Uuid
+  name                         String    @db.VarChar(150)
+  slug                         String    @unique @db.VarChar(150)
+  legal_name                   String?   @db.VarChar(150)
+  business_type                String    @default("restaurant") @db.VarChar(30)
+  status                       String    @default("active") @db.VarChar(20)
+  is_active                    Boolean   @default(true)
+  phone                        String?   @db.VarChar(20)
+  email                        String?   @db.VarChar(150)
+  website                      String?   @db.VarChar(150)
+  gstin                        String?   @db.VarChar(20)
+  pan                          String?   @db.VarChar(15)
+  address_line1                String?   @db.VarChar(150)
+  address_line2                String?   @db.VarChar(150)
+  city                         String?   @db.VarChar(100)
+  state                        String?   @db.VarChar(100)
+  country                      String?   @default("India") @db.VarChar(100)
+  pincode                      String?   @db.VarChar(10)
+  business_registration_number String?   @db.VarChar(100)
+  date_of_birth                DateTime? @db.Date
+  gender                       String?   @db.VarChar(20)
+  gst_certificate              String?
+  identity_verification        String?
+  pan_card                     String?
+  trade_license                String?
+  created_at                   DateTime  @default(now()) @db.Timestamptz
+  updated_at                   DateTime  @default(now()) @db.Timestamptz
+
+  superadmin         Superadmin?  @relation(fields: [created_by_superadmin_id], references: [id])
+  admin              Admin?       @relation(fields: [admin_id], references: [id])
+  branches           Branch[]
+  teamMembers        TeamMember[]
+  extra_branches     Int          @default(0)
+  extra_team_members Int          @default(0)
+  auditLogs          AuditLog[]
+
+  subscription_plan_id String?               @db.Uuid
+  subscription_plan    SubscriptionPlan?     @relation(fields: [subscription_plan_id], references: [id])
+  invoices             SubscriptionInvoice[]
+  suppliers            Supplier[]
+  supportTickets       SupportTicket[]
+
+  @@map("businesses")
+}
+
+model Branch {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String    @db.Uuid
+  name             String    @db.VarChar(150)
+  code             String    @db.VarChar(30)
+  branch_type      String?   @db.VarChar(50)
+  region           String?   @db.VarChar(100)
+  contact          String?   @db.VarChar(20)
+  email            String?   @db.VarChar(150)
+  address          String?
+  city             String?   @db.VarChar(100)
+  state            String?   @db.VarChar(100)
+  country          String?   @default("India") @db.VarChar(100)
+  currency         String?   @default("INR") @db.VarChar(3)
+  time_zone        String?   @default("Asia/Kolkata") @db.VarChar(50)
+  tax_jurisdiction String?   @db.VarChar(100)
+  tax_registration String?   @db.VarChar(30)
+  tax_percentage   Decimal?  @default(0) @db.Decimal(5, 2)
+  store_size       String?   @db.VarChar(30)
+  opening_date     DateTime? @db.Date
+  status           String    @default("Operational") @db.VarChar(20)
+  capacity         Int?
+  tables_count     Int?
+  schedule         Json?
+  settings         Json?     @default("{}")
+  created_at       DateTime  @default(now()) @db.Timestamptz
+  updated_at       DateTime  @default(now()) @db.Timestamptz
+
+  business       Business        @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  teamMembers    TeamMember[]
+  zones          Zone[]
+  tables         Table[]
+  inventoryItems InventoryItem[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  orders         Order[]
+  invoices       Invoice[]
+  expenses       Expense[]
+  utilityBills   UtilityBill[]
+  withdrawals    Withdrawal[]
+  supportTickets SupportTicket[]
+
+  @@unique([business_id, code])
+  @@map("branches")
+}
+
+model TeamMember {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id          String    @db.Uuid
+  branch_id            String?   @db.Uuid
+  role                 Json?
+  created_by_admin_id  String?   @db.Uuid
+  created_by_member_id String?   @db.Uuid
+  first_name           String    @db.VarChar(100)
+  last_name            String?   @db.VarChar(100)
+  email                String    @unique @db.VarChar(150)
+  phone                String?   @db.VarChar(20)
+  pin                  String?   @db.VarChar(10)
+  password_hash        String?
+  salary               Decimal?  @db.Decimal(10, 2)
+  join_date            DateTime? @db.Date
+  status               String    @default("Active") @db.VarChar(20)
+  created_at           DateTime  @default(now()) @db.Timestamptz
+  updated_at           DateTime  @default(now()) @db.Timestamptz
+
+  business        Business     @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  branch          Branch?      @relation(fields: [branch_id], references: [id])
+  createdByAdmin  Admin?       @relation(fields: [created_by_admin_id], references: [id])
+  createdByMember TeamMember?  @relation("MemberToMember", fields: [created_by_member_id], references: [id])
+  createdMembers  TeamMember[] @relation("MemberToMember")
+  orders          Order[]
+  withdrawals     Withdrawal[]
+
+  @@map("team_members")
+}
+
+model SubscriptionPlan {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plan                 String   @db.VarChar(20)
+  status               String   @default("trialing") @db.VarChar(20)
+  is_active            Boolean  @default(true)
+  billing_cycle        String   @default("monthly") @db.VarChar(20)
+  amount               Decimal  @default(0) @db.Decimal(10, 2)
+  currency             String   @default("INR") @db.VarChar(3)
+  max_branches         Int      @default(0)
+  max_team_members     Int      @default(0)
+  cancel_at_period_end Boolean  @default(false)
+  auto_renew           Boolean  @default(false)
+  created_at           DateTime @default(now()) @db.Timestamptz
+  updated_at           DateTime @default(now()) @db.Timestamptz
+
+  businesses Business[]
+  invoices   SubscriptionInvoice[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionInvoice {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subscription_id String?   @db.Uuid
+  business_id     String    @db.Uuid
+  invoice_number  String    @unique @db.VarChar(50)
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("INR") @db.VarChar(3)
+  status          String    @default("pending") @db.VarChar(20)
+  issued_at       DateTime  @default(now()) @db.Timestamptz
+  due_date        DateTime  @db.Date
+  paid_at         DateTime? @db.Timestamptz
+  download_url    String?
+  payment_method  String?   @db.VarChar(50)
+  plan_snapshot   Json?
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  subscription SubscriptionPlan? @relation(fields: [subscription_id], references: [id], onDelete: SetNull)
+  business     Business          @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@index([subscription_id])
+  @@index([business_id])
+  @@map("subscription_invoices")
+}
+
+model Zone {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id   String   @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?
+  created_at  DateTime @default(now()) @db.Timestamptz
+  updated_at  DateTime @default(now()) @db.Timestamptz
+
+  branch Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  tables Table[]
+
+  @@map("zones")
+}
+
+model Table {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  zone_id       String   @db.Uuid
+  branch_id     String   @db.Uuid
+  name          String   @db.VarChar(50)
+  capacity      Int      @default(4)
+  shape         String   @default("rectangle")
+  position_x    Int      @default(0)
+  position_y    Int      @default(0)
+  status        String   @default("Available") @db.VarChar(30)
+  rotation      Int      @default(0)
+  order_data    Json?
+  merged_tables Json?
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz
+  updated_at    DateTime @default(now()) @db.Timestamptz
+
+  zone   Zone    @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  branch Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("tables")
+}
+
+model MenuCategory {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id      String   @db.Uuid
+  name           String   @db.VarChar(100)
+  sort_order     Int      @default(0)
+  is_active      Boolean  @default(true)
+  sub_categories Json?
+  created_at     DateTime @default(now()) @db.Timestamptz
+  updated_at     DateTime @default(now()) @db.Timestamptz
+
+  branch    Branch     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  menuItems MenuItem[]
+
+  @@unique([branch_id, name])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id           String   @db.Uuid
+  category_id         String?  @db.Uuid
+  sub_category        String?  @db.VarChar(100)
+  name                String   @db.VarChar(150)
+  food_type           String   @default("veg") @db.VarChar(20)
+  image_url           String?
+  base_price          Decimal  @db.Decimal(10, 2)
+  spice_level_enabled Boolean  @default(false)
+  variants            Json?
+  addon_categories    Json?
+  status              String   @default("Active") @db.VarChar(20)
+  created_at          DateTime @default(now()) @db.Timestamptz
+  updated_at          DateTime @default(now()) @db.Timestamptz
+
+  branch   Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  category MenuCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+
+  @@map("menu_items")
+}
+
+model InventoryItem {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id       String    @db.Uuid
+  name            String    @db.VarChar(150)
+  sku             String    @db.VarChar(50)
+  category        String?   @db.VarChar(100)
+  unit            String    @default("pcs") @db.VarChar(20)
+  price           Decimal   @default(0) @db.Decimal(10, 2)
+  reorder_level   Decimal   @default(0) @db.Decimal(10, 2)
+  in_stock        Decimal   @default(0) @db.Decimal(10, 2)
+  reserved        Decimal   @default(0) @db.Decimal(10, 2)
+  status          String    @default("Normal") @db.VarChar(20)
+  last_counted_at DateTime? @db.Timestamptz
+  is_composite    Boolean   @default(false)
+  ingredients     Json?
+  is_active       Boolean   @default(true)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+  updated_at      DateTime  @default(now()) @db.Timestamptz
+
+  branch Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  ledger StockLedger[]
+
+  @@unique([branch_id, sku])
+  @@map("inventory_items")
+}
+
+model StockLedger {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_id         String   @db.Uuid
+  movement_type   String   @db.VarChar(30)
+  quantity_change Decimal  @db.Decimal(10, 2)
+  reason          String?  @db.VarChar(150)
+  performed_by    String?  @db.Uuid
+  reference_id    String?  @db.VarChar(50)
+  created_at      DateTime @default(now()) @db.Timestamptz
+
+  item InventoryItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@map("stock_ledger")
+}
+
+model Order {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id       String   @db.Uuid
+  staff_id        String?  @db.Uuid
+  order_number    String   @unique @db.VarChar(50)
+  kot_numbers     String[] @default([])
+  order_type      String   @default("Dine-in") @db.VarChar(20)
+  status          String   @default("Pending") @db.VarChar(30)
+  payment_status  String   @default("Pending") @db.VarChar(30)
+  payment_methods Json?
+  subtotal        Decimal  @default(0) @db.Decimal(10, 2)
+  tax_amount      Decimal  @default(0) @db.Decimal(10, 2)
+  discount_amount Decimal  @default(0) @db.Decimal(10, 2)
+  total_amount    Decimal  @default(0) @db.Decimal(10, 2)
+  customer_info   Json?
+  table_id        String?  @db.Uuid
+  cart_items      Json?
+  running_order   Json?
+  created_at      DateTime @default(now()) @db.Timestamptz
+  updated_at      DateTime @default(now()) @db.Timestamptz
+
+  branch  Branch      @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  staff   TeamMember? @relation(fields: [staff_id], references: [id], onDelete: SetNull)
+  table   Table?      @relation(fields: [table_id], references: [id], onDelete: SetNull)
+  invoice Invoice?
+
+  @@map("orders")
+}
+
+model Invoice {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_number  String   @unique @db.VarChar(50)
+  order_id        String   @unique @db.Uuid
+  branch_id       String   @db.Uuid
+  subtotal        Decimal  @db.Decimal(10, 2)
+  tax_amount      Decimal  @db.Decimal(10, 2)
+  discount_amount Decimal  @db.Decimal(10, 2)
+  total_amount    Decimal  @db.Decimal(10, 2)
+  payment_methods Json
+  customer_info   Json?
+  issued_at       DateTime @default(now()) @db.Timestamptz
+
+  order  Order  @relation(fields: [order_id], references: [id])
+  branch Branch @relation(fields: [branch_id], references: [id])
+
+  @@map("invoices")
+}
+
+model Expense {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id    String   @db.Uuid
+  category     String   @db.VarChar(100)
+  amount       Decimal  @db.Decimal(10, 2)
+  description  String?
+  expense_date DateTime @default(now()) @db.Date
+  created_at   DateTime @default(now()) @db.Timestamptz
+  updated_at   DateTime @default(now()) @db.Timestamptz
+
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id String   @db.Uuid
+  branch_id   String?  @db.Uuid
+  actor_id    String?  @db.Uuid
+  actor_name  String?  @db.VarChar(150)
+  actor_role  String?  @db.VarChar(50)
+  type        String   @db.VarChar(50) // Transaction, Authentication, Cash, Settings, System, Menu
+  action      String   @db.VarChar(150)
+  details     String?
+  severity    String   @default("info") @db.VarChar(20) // info, warning, critical
+  terminal    String?  @db.VarChar(100)
+  ip_address  String?  @db.VarChar(45)
+  created_at  DateTime @default(now()) @db.Timestamptz
+
+  business Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@index([business_id, created_at(sort: Desc)])
+  @@index([business_id, type])
+  @@map("audit_logs")
+}
+
+model Supplier {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String    @db.Uuid
+  name              String    @db.VarChar(150)
+  business_name     String?   @db.VarChar(150)
+  category          String?   @db.VarChar(50)
+  status            String    @default("Active") @db.VarChar(20)
+  registration_date DateTime? @db.Date
+  contact           Json?
+  address           Json?
+  tax               Json?
+  banking           Json?
+  performance       Json?
+  stats             Json?
+  products          String[]  @default([])
+  contract          Json?
+  communications    Json?
+  created_at        DateTime  @default(now()) @db.Timestamptz
+  updated_at        DateTime  @default(now()) @db.Timestamptz
+
+  business Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@map("suppliers")
+}
+
+model UtilityBill {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id      String    @db.Uuid
+  vendor         String    @db.VarChar(150)
+  utility_type   String    @db.VarChar(50)
+  amount         Decimal   @db.Decimal(10, 2)
+  payment_method String?   @db.VarChar(50)
+  created_at     DateTime  @default(now()) @db.Timestamptz
+  updated_at     DateTime  @default(now()) @db.Timestamptz
+
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@map("utility_bills")
+}
+
+model Withdrawal {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id       String   @db.Uuid
+  amount          Decimal  @db.Decimal(10, 2)
+  withdrawn_by    String   @db.Uuid
+  payment_method  String?  @db.VarChar(50)
+  withdrawal_date DateTime @default(now()) @db.Timestamptz
+  description     String?
+  created_at      DateTime @default(now()) @db.Timestamptz
+  updated_at      DateTime @default(now()) @db.Timestamptz
+
+  branch      Branch     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  team_member TeamMember @relation(fields: [withdrawn_by], references: [id])
+
+  @@map("withdrawals")
+}
+
+model SupportTicket {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branch_id           String?  @db.Uuid
+  business_id         String?  @db.Uuid
+  subject             String   @db.VarChar(255)
+  ticket_number       String   @unique @db.VarChar(50)
+  description         String?
+  status              String   @default("open") @db.VarChar(50)
+  priority            String   @default("low") @db.VarChar(50)
+  sla_breached        Boolean  @default(false)
+  csat_score          Decimal? @db.Decimal(3, 1)
+  resolution_time_hrs Decimal? @db.Decimal(10, 2)
+  created_at          DateTime @default(now()) @db.Timestamptz
+  updated_at          DateTime @default(now()) @db.Timestamptz
+
+  business Business? @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  branch   Branch?   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@index([business_id, status])
+  @@map("support_tickets")
+}
+
+model Notification {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String   @db.VarChar(255)
+  message        String
+  type           String   @db.VarChar(50)
+  isRead         Boolean  @default(false)
+  referenceId    String?  @db.VarChar(255)
+  
+  targetUser     String?  @db.Uuid
+  targetBranch   String?  @db.Uuid
+  targetBusiness String?  @db.Uuid
+  targetAdmin    Boolean  @default(false)
+
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @default(now()) @db.Timestamptz
+
+  @@index([targetUser, isRead])
+  @@index([targetBranch, isRead])
+  @@index([targetBusiness, isRead])
+  @@map("notifications")
+}
