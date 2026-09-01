@@ -24,6 +24,7 @@ app.use(
       "http://localhost:8081",
       "http://127.0.0.1:8081",
       "https://request-flashback-liquid.ngrok-free.dev",
+      /\.vercel\.app$/, // Allow all Vercel domains
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
