@@ -85,11 +85,12 @@ model Business {
   extra_team_members Int          @default(0)
   auditLogs          AuditLog[]
 
-  subscription_plan_id String?               @db.Uuid
-  subscription_plan    SubscriptionPlan?     @relation(fields: [subscription_plan_id], references: [id])
-  invoices             SubscriptionInvoice[]
-  suppliers            Supplier[]
-  supportTickets       SupportTicket[]
+  subscription_plan_id String?           @db.Uuid
+  subscription_plan    SubscriptionPlan? @relation(fields: [subscription_plan_id], references: [id])
+
+  invoices       SubscriptionInvoice[]
+  suppliers      Supplier[]
+  supportTickets SupportTicket[]
 
   @@map("businesses")
 }
@@ -184,6 +185,10 @@ model SubscriptionPlan {
   auto_renew           Boolean  @default(false)
   created_at           DateTime @default(now()) @db.Timestamptz
   updated_at           DateTime @default(now()) @db.Timestamptz
+
+  current_period_start DateTime @default(now()) @db.Timestamptz
+  current_period_end   DateTime? @db.Timestamptz
+  trial_end_date       DateTime? @db.Timestamptz
 
   businesses Business[]
   invoices   SubscriptionInvoice[]

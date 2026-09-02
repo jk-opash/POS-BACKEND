@@ -9,6 +9,8 @@ export async function getAllBusinesses() {
         admin: true,
         superadmin: true,
         subscription_plan: true,
+        branches: true,
+        teamMembers: true,
       },
       orderBy: { created_at: "asc" },
     });
@@ -21,6 +23,8 @@ export async function getAllBusinesses() {
       include: {
         admin: true,
         superadmin: true,
+        branches: true,
+        teamMembers: true,
       },
       orderBy: { created_at: "asc" },
     });
@@ -69,37 +73,109 @@ export async function getBusinessById(id) {
 
 export async function updateBusiness(id, data) {
   // Extract fields that shouldn't be updated directly or handle specific logic
-  const { 
-    admin, superadmin, branches, invoices, 
-    max_branches, max_team_members,
-    admin_name, admin_email, admin_phone,
-    ...updateData 
+  const {
+    admin,
+    superadmin,
+    branches,
+    invoices,
+    max_branches,
+    max_team_members,
+    admin_name,
+    admin_email,
+    admin_phone,
+    subscription_plan,
+    subscription_status,
+    subscription_start_date,
+    subscription_ends_at,
+    subscription_trial_end_date,
+    subscription_auto_renew,
+    date_of_birth,
+    ...updateData
   } = data;
 
+  if (date_of_birth) {
+    updateData.date_of_birth = new Date(date_of_birth);
+  }
+
   const business = await prisma.business.findUnique({ where: { id } });
-  
+
   if (business) {
     // Update SubscriptionPlan if limits are provided
-    if ((max_branches !== undefined || max_team_members !== undefined) && business.subscription_plan_id) {
-      await prisma.subscriptionPlan.update({
-        where: { id: business.subscription_plan_id },
-        data: {
-          ...(max_branches !== undefined && { max_branches }),
-          ...(max_team_members !== undefined && { max_team_members }),
-        }
+    if (
+      (max_branches !== undefined ||
+        max_team_members !== undefined ||
+        subscription_plan !== undefined ||
+        subscription_status !== undefined ||
+        subscription_start_date !== undefined ||
+        subscription_ends_at !== undefined ||
+        subscription_trial_end_date !== undefined ||
+        subscription_auto_renew !== undefined) &&
+      business.subscription_plan_id
+    ) {
+      const planUsageCount = await prisma.business.count({
+        where: { subscription_plan_id: business.subscription_plan_id }
       });
+
+      if (planUsageCount > 1) {
+        // It's a shared template plan (likely from seeding). Clone it first.
+        const currentPlan = await prisma.subscriptionPlan.findUnique({
+          where: { id: business.subscription_plan_id }
+        });
+
+        const { id: _id, created_at, updated_at, ...planDataToClone } = currentPlan;
+
+        // Apply new values to the clone
+        if (max_branches !== undefined) planDataToClone.max_branches = max_branches;
+        if (max_team_members !== undefined) planDataToClone.max_team_members = max_team_members;
+        if (subscription_plan !== undefined) planDataToClone.plan = subscription_plan;
+        if (subscription_status !== undefined) planDataToClone.status = subscription_status;
+        if (subscription_start_date !== undefined) planDataToClone.current_period_start = subscription_start_date ? new Date(subscription_start_date) : null;
+        if (subscription_ends_at !== undefined) planDataToClone.current_period_end = subscription_ends_at ? new Date(subscription_ends_at) : null;
+        if (subscription_trial_end_date !== undefined) planDataToClone.trial_end_date = subscription_trial_end_date ? new Date(subscription_trial_end_date) : null;
+        if (subscription_auto_renew !== undefined) planDataToClone.auto_renew = subscription_auto_renew;
+
+        const newPlan = await prisma.subscriptionPlan.create({
+          data: planDataToClone
+        });
+
+        // Link the business to this newly cloned and updated plan
+        updateData.subscription_plan_id = newPlan.id;
+      } else {
+        // Not shared, safe to update directly
+        await prisma.subscriptionPlan.update({
+          where: { id: business.subscription_plan_id },
+          data: {
+            ...(max_branches !== undefined && { max_branches }),
+            ...(max_team_members !== undefined && { max_team_members }),
+            ...(subscription_plan !== undefined && { plan: subscription_plan }),
+            ...(subscription_status !== undefined && { status: subscription_status }),
+            ...(subscription_start_date !== undefined && { current_period_start: subscription_start_date ? new Date(subscription_start_date) : null }),
+            ...(subscription_ends_at !== undefined && { current_period_end: subscription_ends_at ? new Date(subscription_ends_at) : null }),
+            ...(subscription_trial_end_date !== undefined && { trial_end_date: subscription_trial_end_date ? new Date(subscription_trial_end_date) : null }),
+            ...(subscription_auto_renew !== undefined && { auto_renew: subscription_auto_renew }),
+          },
+        });
+      }
     }
 
     // Update Admin if owner details are provided, or if is_active changes
-    if ((admin_name !== undefined || admin_email !== undefined || admin_phone !== undefined || updateData.is_active !== undefined) && business.admin_id) {
+    if (
+      (admin_name !== undefined ||
+        admin_email !== undefined ||
+        admin_phone !== undefined ||
+        updateData.is_active !== undefined) &&
+      business.admin_id
+    ) {
       await prisma.admin.update({
         where: { id: business.admin_id },
         data: {
           ...(admin_name !== undefined && { name: admin_name }),
           ...(admin_email !== undefined && { email: admin_email }),
           ...(admin_phone !== undefined && { phone: admin_phone }),
-          ...(updateData.is_active !== undefined && { is_active: updateData.is_active }),
-        }
+          ...(updateData.is_active !== undefined && {
+            is_active: updateData.is_active,
+          }),
+        },
       });
     }
   }
@@ -189,14 +265,14 @@ export async function provisionBusiness(data, superadminId) {
     : "restaurant";
 
   // Find targeted or default subscription plan
-  let plan = null;
+  let templatePlan = null;
   if (subscriptionPlanId) {
-    plan = await prisma.subscriptionPlan.findUnique({
+    templatePlan = await prisma.subscriptionPlan.findUnique({
       where: { id: subscriptionPlanId },
     });
   }
-  if (!plan) {
-    plan = await prisma.subscriptionPlan.findFirst({
+  if (!templatePlan) {
+    templatePlan = await prisma.subscriptionPlan.findFirst({
       orderBy: { created_at: "asc" },
     });
   }
@@ -236,24 +312,63 @@ export async function provisionBusiness(data, superadminId) {
         pincode,
         admin_id: admin.id,
         created_by_superadmin_id: superadminId,
-        subscription_plan_id: plan ? plan.id : undefined,
+        // subscription_plan_id is set after we create the cloned plan
       },
     });
 
+    // 2.5 Clone the template plan for this business (so it has its own dates)
+    let activePlan = null;
+    if (templatePlan) {
+      const now = new Date();
+      const trialEndDate = new Date(now);
+      trialEndDate.setDate(trialEndDate.getDate() + 14);
+
+      const periodEndDate = new Date(trialEndDate);
+      if (templatePlan.billing_cycle === "yearly" || templatePlan.billing_cycle === "annual") {
+        periodEndDate.setFullYear(periodEndDate.getFullYear() + 1);
+      } else {
+        periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+      }
+
+      activePlan = await tx.subscriptionPlan.create({
+        data: {
+          plan: templatePlan.plan,
+          status: data.subscriptionStatus || templatePlan.status || "trialing",
+          is_active: true,
+          billing_cycle: templatePlan.billing_cycle,
+          amount: templatePlan.amount,
+          currency: templatePlan.currency,
+          max_branches: templatePlan.max_branches,
+          max_team_members: templatePlan.max_team_members,
+          cancel_at_period_end: templatePlan.cancel_at_period_end,
+          auto_renew: templatePlan.auto_renew,
+          current_period_start: now,
+          current_period_end: periodEndDate,
+          trial_end_date: trialEndDate,
+        },
+      });
+
+      // Update business with the new cloned plan id
+      await tx.business.update({
+        where: { id: business.id },
+        data: { subscription_plan_id: activePlan.id },
+      });
+    }
+
     // 3. Generate Initial Subscription Invoice if a plan exists
     let invoice = null;
-    if (plan) {
+    if (activePlan) {
       const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 7);
 
       invoice = await tx.subscriptionInvoice.create({
         data: {
-          subscription_id: plan.id,
+          subscription_id: activePlan.id,
           business_id: business.id,
           invoice_number: invoiceNumber,
-          amount: plan.amount || 0,
-          currency: plan.currency || "INR",
+          amount: activePlan.amount || 0,
+          currency: activePlan.currency || "INR",
           status: "paid",
           issued_at: new Date(),
           due_date: dueDate,

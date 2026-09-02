@@ -134,6 +134,21 @@ export async function loginAdmin(email, password) {
   const user = rows[0];
   if (!user || !user.is_active) return null;
   if (!(await bcrypt.compare(password, user.password_hash))) return null;
+
+  // Check if the business subscription has expired
+  if (user.businesses && user.businesses.length > 0) {
+    const business = user.businesses[0];
+    const plan = business.subscription_plan;
+    if (plan) {
+      const now = new Date();
+      if (plan.status === "trialing" && plan.trial_end_date && now > new Date(plan.trial_end_date)) {
+        return { error: "subscription_expired", message: "Your free trial has ended. Please contact your administrator." };
+      }
+      if (plan.status !== "trialing" && plan.current_period_end && now > new Date(plan.current_period_end)) {
+        return { error: "subscription_expired", message: "Your subscription has expired. Please contact your administrator." };
+      }
+    }
+  }
   
   const businessId = user.businesses && user.businesses.length > 0 ? user.businesses[0].id : null;
   const token = issueToken({ id: user.id, role: "admin", businessId, name: user.name || user.first_name });
@@ -159,6 +174,28 @@ export async function loginTeamMember(email, password) {
   const user = rows[0];
   if (!user || user.status !== "Active" || !user.password_hash) return null;
   if (!(await bcrypt.compare(password, user.password_hash))) return null;
+
+  // Check if the business subscription has expired
+  if (user.business_id) {
+    const { pool: pgPool } = await import("../../config/db.js");
+    const { rows: planRows } = await pgPool.query(
+      `SELECT sp.status, sp.trial_end_date, sp.current_period_end
+       FROM businesses b
+       JOIN subscriptions sp ON sp.id = b.subscription_plan_id
+       WHERE b.id = $1`,
+      [user.business_id]
+    );
+    const plan = planRows[0];
+    if (plan) {
+      const now = new Date();
+      if (plan.status === "trialing" && plan.trial_end_date && now > new Date(plan.trial_end_date)) {
+        return { error: "subscription_expired", message: "Your free trial has ended. Please contact your administrator." };
+      }
+      if (plan.status !== "trialing" && plan.current_period_end && now > new Date(plan.current_period_end)) {
+        return { error: "subscription_expired", message: "Your subscription has expired. Please contact your administrator." };
+      }
+    }
+  }
   
   const token = issueToken({
     id: user.id,
@@ -191,6 +228,28 @@ export async function loginTeamMemberByPin(branchId, pin) {
   );
   const user = rows[0];
   if (!user || user.status !== "Active") return null;
+
+  // Check if the business subscription has expired
+  if (user.business_id) {
+    const { pool: pgPool } = await import("../../config/db.js");
+    const { rows: planRows } = await pgPool.query(
+      `SELECT sp.status, sp.trial_end_date, sp.current_period_end
+       FROM businesses b
+       JOIN subscriptions sp ON sp.id = b.subscription_plan_id
+       WHERE b.id = $1`,
+      [user.business_id]
+    );
+    const plan = planRows[0];
+    if (plan) {
+      const now = new Date();
+      if (plan.status === "trialing" && plan.trial_end_date && now > new Date(plan.trial_end_date)) {
+        return { error: "subscription_expired", message: "Your free trial has ended. Please contact your administrator." };
+      }
+      if (plan.status !== "trialing" && plan.current_period_end && now > new Date(plan.current_period_end)) {
+        return { error: "subscription_expired", message: "Your subscription has expired. Please contact your administrator." };
+      }
+    }
+  }
   
   const token = issueToken({
     id: user.id,

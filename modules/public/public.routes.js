@@ -16,4 +16,7 @@ router.post("/order", publicController.createPublicOrder);
 // Update order KOT
 router.put("/order/:id/kot", publicController.updatePublicOrderKOT);
 
+// Get active orders for a table
+router.get("/order/:tableId/active", publicController.getTableActiveOrders);
+
 export default router;
