@@ -6,6 +6,7 @@ import { connectDB } from "./config/database.js";
 
 import http from "http";
 import { initSocket } from "./modules/socket/socket.service.js";
+import { initCronJobs } from "./modules/cron/cron.service.js";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -13,6 +14,9 @@ const server = http.createServer(app);
 
 // Initialize Socket.io
 initSocket(server);
+
+// Initialize Cron Jobs
+initCronJobs();
 
 // Middleware
 app.use(
@@ -62,28 +66,29 @@ import notificationRoutes from "./modules/notification/notification.routes.js";
 import publicRoutes from "./modules/public/public.routes.js";
 
 import { authenticate } from "./middleware/auth.middleware.js";
+import { requireActiveSubscription } from "./middleware/subscription.middleware.js";
 
 // Mount Routes
 app.use("/api/public", publicRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/upload", authenticate, uploadRoutes);
+app.use("/api/upload", authenticate, requireActiveSubscription, uploadRoutes);
 app.use("/api/admin", authenticate, adminRoutes);
-app.use("/api/branch", authenticate, branchRoutes);
-app.use("/api/team-member", authenticate, teamMemberRoutes);
-app.use("/api/zone", authenticate, zoneRoutes);
-app.use("/api/table", authenticate, tableRoutes);
-app.use("/api/menu", authenticate, menuRoutes);
-app.use("/api/inventory", authenticate, inventoryRoutes);
-app.use("/api/order", authenticate, orderRoutes);
-app.use("/api/invoice", authenticate, invoiceRoutes);
+app.use("/api/branch", authenticate, requireActiveSubscription, branchRoutes);
+app.use("/api/team-member", authenticate, requireActiveSubscription, teamMemberRoutes);
+app.use("/api/zone", authenticate, requireActiveSubscription, zoneRoutes);
+app.use("/api/table", authenticate, requireActiveSubscription, tableRoutes);
+app.use("/api/menu", authenticate, requireActiveSubscription, menuRoutes);
+app.use("/api/inventory", authenticate, requireActiveSubscription, inventoryRoutes);
+app.use("/api/order", authenticate, requireActiveSubscription, orderRoutes);
+app.use("/api/invoice", authenticate, requireActiveSubscription, invoiceRoutes);
 app.use("/api/analytics", analyticsRoutes); // Has its own authentication
-app.use("/api/expense", authenticate, expenseRoutes);
+app.use("/api/expense", authenticate, requireActiveSubscription, expenseRoutes);
 app.use("/api/audit-logs", auditLogRoutes); // Has its own authentication
-app.use("/api/supplier", authenticate, supplierRoutes);
-app.use("/api/utility-bill", authenticate, utilityBillRoutes);
-app.use("/api/withdrawal", authenticate, withdrawalRoutes);
+app.use("/api/supplier", authenticate, requireActiveSubscription, supplierRoutes);
+app.use("/api/utility-bill", authenticate, requireActiveSubscription, utilityBillRoutes);
+app.use("/api/withdrawal", authenticate, requireActiveSubscription, withdrawalRoutes);
 app.use("/api/support-ticket", authenticate, supportTicketRoutes);
 app.use("/api/notifications", authenticate, notificationRoutes);
 

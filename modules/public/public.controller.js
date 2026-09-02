@@ -1,4 +1,4 @@
-import * as publicService from "./public.service.js";
+import { getCustomerMenuData as getCustomerMenuDataService, getTableActiveOrders as getTableActiveOrdersService } from "./public.service.js";
 import * as orderService from "../order/order.service.js";
 import { emitToBranch, sendNotification } from "../socket/socket.service.js";
 /**
@@ -15,7 +15,7 @@ export async function getCustomerMenuData(req, res) {
       });
     }
 
-    const data = await publicService.getCustomerMenuData(tableId);
+    const data = await getCustomerMenuDataService(tableId);
 
     return res.status(200).json({
       success: true,
@@ -80,3 +80,18 @@ export async function updatePublicOrderKOT(req, res) {
     res.status(500).json({ error: "Failed to update order KOT" });
   }
 }
+
+/**
+ * GET /api/public/order/:tableId/active
+ */
+export async function getTableActiveOrders(req, res) {
+  try {
+    const { tableId } = req.params;
+    const orders = await getTableActiveOrdersService(tableId);
+    res.json({ success: true, data: orders });
+  } catch (error) {
+    console.error("Error fetching table active orders:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch active orders" });
+  }
+}
+

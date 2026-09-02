@@ -49,3 +49,22 @@ export async function getCustomerMenuData(tableId) {
     menuItems,
   };
 }
+
+/**
+ * Fetch all active orders for a specific table.
+ */
+export async function getTableActiveOrders(tableId) {
+  const activeOrders = await prisma.order.findMany({
+    where: {
+      table_id: tableId,
+      status: {
+        notIn: ["Completed", "Paid", "Cancelled"],
+      },
+    },
+    orderBy: {
+      created_at: "desc",
+    },
+  });
+
+  return activeOrders;
+}

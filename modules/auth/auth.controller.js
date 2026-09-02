@@ -24,7 +24,13 @@ export async function adminLogin(req, res) {
       return res.status(400).json({ error: "Email and password are required" });
     }
     const result = await loginAdmin(email, password);
-    if (!result || !result.token) {
+    if (!result) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    if (result.error === "subscription_expired") {
+      return res.status(403).json({ error: result.error, message: result.message });
+    }
+    if (!result.token) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
     res.json({ token: result.token, user: result.user });
@@ -41,7 +47,13 @@ export async function teamMemberLogin(req, res) {
       return res.status(400).json({ error: "Email and password are required" });
     }
     const result = await loginTeamMember(email, password);
-    if (!result || !result.token) {
+    if (!result) {
+      return res.status(401).json({ error: "Invalid credentials or inactive account" });
+    }
+    if (result.error === "subscription_expired") {
+      return res.status(403).json({ error: result.error, message: result.message });
+    }
+    if (!result.token) {
       return res.status(401).json({ error: "Invalid credentials or inactive account" });
     }
     res.json({ token: result.token, user: result.user });
@@ -58,7 +70,13 @@ export async function pinLogin(req, res) {
       return res.status(400).json({ error: "branchId and pin are required" });
     }
     const result = await loginTeamMemberByPin(branchId, pin);
-    if (!result || !result.token) {
+    if (!result) {
+      return res.status(401).json({ error: "Invalid PIN or inactive account" });
+    }
+    if (result.error === "subscription_expired") {
+      return res.status(403).json({ error: result.error, message: result.message });
+    }
+    if (!result.token) {
       return res.status(401).json({ error: "Invalid PIN or inactive account" });
     }
     res.json({ token: result.token, user: result.user });
