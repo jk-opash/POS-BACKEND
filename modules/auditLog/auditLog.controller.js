@@ -2,16 +2,25 @@ import { prisma } from "../../config/database.js";
 
 export async function getAuditLogsHandler(req, res) {
   try {
-    const { type, severity, startDate, endDate, limit = 50, business_id, branch_id, actor_role } = req.query;
-    
+    const {
+      type,
+      severity,
+      startDate,
+      endDate,
+      limit = 150,
+      business_id,
+      branch_id,
+      actor_role,
+    } = req.query;
+
     // Default base query
     const where = {};
-    
+
     // Role-based scoping
-    if (req.user.role === 'superadmin') {
+    if (req.user.role === "superadmin") {
       if (business_id) where.business_id = business_id;
       if (branch_id) where.branch_id = branch_id;
-    } else if (req.user.role === 'admin') {
+    } else if (req.user.role === "admin") {
       // Admin is restricted to their own business
       where.business_id = req.user.businessId;
       if (branch_id) where.branch_id = branch_id;
@@ -33,13 +42,13 @@ export async function getAuditLogsHandler(req, res) {
 
     const logs = await prisma.auditLog.findMany({
       where,
-      orderBy: { created_at: 'desc' },
-      take: parseInt(limit, 10),
+      orderBy: { created_at: "desc" },
+      // take: parseInt(limit, 10),
       include: {
         business: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     res.json({ data: logs });
