@@ -5,7 +5,13 @@ import { Prisma } from "../../generated/prisma/index.js";
 export async function getOrdersByBranch(branchId, query = {}) {
   const { status, order_type } = query;
   const where = { branch_id: branchId };
-  if (status) where.status = status;
+  if (status) {
+    if (status.includes(",")) {
+      where.status = { in: status.split(",") };
+    } else {
+      where.status = status;
+    }
+  }
   if (order_type) where.order_type = order_type;
 
   return await prisma.order.findMany({
