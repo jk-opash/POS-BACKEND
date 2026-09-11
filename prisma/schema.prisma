@@ -85,6 +85,13 @@ model Business {
   extra_team_members Int          @default(0)
   auditLogs          AuditLog[]
 
+  // Subscription instance fields (business-specific dates & status)
+  subscription_status      String?   @default("trialing") @db.VarChar(20)
+  subscription_start_date  DateTime? @db.Timestamptz
+  subscription_ends_at     DateTime? @db.Timestamptz
+  subscription_trial_end   DateTime? @db.Timestamptz
+  subscription_auto_renew  Boolean   @default(false)
+
   subscription_plan_id String?           @db.Uuid
   subscription_plan    SubscriptionPlan? @relation(fields: [subscription_plan_id], references: [id])
 
@@ -174,21 +181,15 @@ model TeamMember {
 model SubscriptionPlan {
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   plan                 String   @db.VarChar(20)
-  status               String   @default("trialing") @db.VarChar(20)
   is_active            Boolean  @default(true)
   billing_cycle        String   @default("monthly") @db.VarChar(20)
   amount               Decimal  @default(0) @db.Decimal(10, 2)
   currency             String   @default("INR") @db.VarChar(3)
   max_branches         Int      @default(0)
   max_team_members     Int      @default(0)
-  cancel_at_period_end Boolean  @default(false)
-  auto_renew           Boolean  @default(false)
+  is_public            Boolean  @default(true)
   created_at           DateTime @default(now()) @db.Timestamptz
   updated_at           DateTime @default(now()) @db.Timestamptz
-
-  current_period_start DateTime @default(now()) @db.Timestamptz
-  current_period_end   DateTime? @db.Timestamptz
-  trial_end_date       DateTime? @db.Timestamptz
 
   businesses Business[]
   invoices   SubscriptionInvoice[]

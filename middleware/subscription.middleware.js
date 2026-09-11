@@ -20,30 +20,24 @@ export async function requireActiveSubscription(req, res, next) {
     const businessId = actor.businessId;
     if (!businessId) return next();
 
-    // Fetch the business and its linked subscription plan
+    // Fetch the business's own subscription fields (Option 1 – dates live on Business)
     const business = await prisma.business.findUnique({
       where: { id: businessId },
       select: {
-        subscription_plan: {
-          select: {
-            status: true,
-            current_period_end: true,
-            trial_end_date: true,
-          },
-        },
+        subscription_status: true,
+        subscription_ends_at: true,
+        subscription_trial_end: true,
       },
     });
 
-    const plan = business?.subscription_plan;
-
-    // If no plan is linked, let it through (provisioning edge case)
-    if (!plan) return next();
+    // If no subscription info, let it through (provisioning edge case)
+    if (!business) return next();
 
     const now = new Date();
 
     // During trial: allow if trial hasn't ended yet
-    if (plan.status === "trialing") {
-      if (plan.trial_end_date && now > new Date(plan.trial_end_date)) {
+    if (business.subscription_status === "trialing") {
+      if (business.subscription_trial_end && now > new Date(business.subscription_trial_end)) {
         return res.status(403).json({
           error: "subscription_expired",
           message:
@@ -53,8 +47,8 @@ export async function requireActiveSubscription(req, res, next) {
       return next();
     }
 
-    // Active subscription: check the billing period end date
-    if (plan.current_period_end && now > new Date(plan.current_period_end)) {
+    // Active subscription: check the billing period end date (null = lifetime/freely plan)
+    if (business.subscription_ends_at && now > new Date(business.subscription_ends_at)) {
       return res.status(403).json({
         error: "subscription_expired",
         message:
