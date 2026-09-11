@@ -457,8 +457,21 @@ export async function getDashboardStatsHandler(req, res) {
       }
     } else {
       let chartDays = timeRange === "month" ? 30 : 7;
+      let startIterationDate = new Date(now);
+
+      if (req.query.startDate && req.query.endDate) {
+        const [sy, sm, sd] = req.query.startDate.split("-").map(Number);
+        const [ey, em, ed] = req.query.endDate.split("-").map(Number);
+        const sDate = new Date(sy, sm - 1, sd);
+        const eDate = new Date(ey, em - 1, ed);
+
+        const diffTime = Math.abs(eDate - sDate);
+        chartDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        startIterationDate = new Date(eDate);
+      }
+
       for (let i = chartDays - 1; i >= 0; i--) {
-        const d = new Date(now);
+        const d = new Date(startIterationDate);
         d.setDate(d.getDate() - i);
 
         const year = d.getFullYear();

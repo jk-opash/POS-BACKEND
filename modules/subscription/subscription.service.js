@@ -27,27 +27,23 @@ export async function getAllSubscriptions() {
 export async function addSubscription(data) {
   const {
     plan,
-    status,
     billing_cycle,
     amount,
     currency,
     max_branches,
     max_team_members,
-    cancel_at_period_end,
-    auto_renew,
+    is_public,
   } = data;
 
   return await prisma.subscriptionPlan.create({
     data: {
       plan,
-      status: status || "trialing",
       billing_cycle: billing_cycle || "monthly",
       amount: amount || 0,
       currency: currency || "INR",
       max_branches: max_branches || 0,
       max_team_members: max_team_members || 0,
-      cancel_at_period_end: cancel_at_period_end || false,
-      auto_renew: auto_renew || false,
+      is_public: is_public ?? true,
     },
   });
 }
@@ -56,30 +52,26 @@ export async function addSubscription(data) {
 export async function editSubscription(id, data) {
   const {
     plan,
-    status,
     billing_cycle,
     amount,
     currency,
     max_branches,
     max_team_members,
-    cancel_at_period_end,
-    auto_renew,
     is_active,
+    is_public,
   } = data;
 
   return await prisma.subscriptionPlan.update({
     where: { id },
     data: {
       plan,
-      status,
       billing_cycle,
       amount,
       currency,
       max_branches,
       max_team_members,
-      cancel_at_period_end,
-      auto_renew,
       is_active,
+      ...(is_public !== undefined && { is_public }),
       updated_at: new Date(),
     },
   });
