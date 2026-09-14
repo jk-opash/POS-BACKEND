@@ -14,3 +14,4 @@ uploads/
 .DS_Store
 *.log
 config.bat
+.env
